@@ -1,5 +1,8 @@
 # native-localization-review
 
+[![test](https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml/badge.svg)](https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml)
+&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A [Claude Code](https://claude.com/claude-code) skill for **native-fluency review and fixes of already-translated content at scale** — across many locales and pages. It finds copy that reads *translated* (calques, stiff register, agreement errors, runtime placeholder-agreement bugs, SERP-overlong meta strings, terminology drift) and turns it into copy a local editor would have written — gated by your approval.
 
 It complements, and does not replace, hreflang/international-SEO tooling: those handle language tags and regions; this handles **linguistic quality**.
