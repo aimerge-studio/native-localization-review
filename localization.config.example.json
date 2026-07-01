@@ -1,0 +1,44 @@
+{
+  "//": "Native-localization-review policy. Copy to your repo root as localization.config.json. HOW strings load lives in the adapter; WHAT to enforce lives here.",
+
+  "referenceLocale": "en",
+  "adapter": "./scripts/loc-review.adapter.ts",
+
+  "//layers": "Optional per-layer metadata: where Stage 5 writes fixes. Especially important for codegen'd files whose source-of-truth is a different file.",
+  "layers": [
+    { "name": "messages", "approval": "diff", "editSource": "messages/<locale>.json" },
+    {
+      "name": "generatedExample",
+      "approval": "diff",
+      "generated": "src/generated/strings.ts",
+      "editSource": "data/strings.source.json",
+      "regen": "bun run scripts/gen-strings.ts",
+      "//note": "AUTO-GENERATED layer: edit the source, then regenerate — never hand-edit the generated file. Wire the generator's --check mode into CI to gate staleness."
+    }
+  ],
+
+  "lengthBudgets": [
+    { "keyPattern": "[Mm]etaDescription$", "max": 160, "note": "SERP description truncation" },
+    { "keyPattern": "[Mm]etaTitle$", "max": 60, "note": "SERP title truncation" }
+  ],
+
+  "//allowlist": "Suppresses false 'untranslated' hits. A BARE value is do-not-translate in every locale (brand/acronym); a 'locale:value' entry is a cognate correct in ONE locale only, so it isn't flagged without masking a real gap elsewhere.",
+  "identicalToReferenceAllowlist": [
+    "OK", "API", "HTML", "iOS", "FAQ", "%",
+    "{name}", "{count}",
+    "de:Newsletter", "fr:Manager"
+  ],
+
+  "//placeholderEquivalents": "Groups of interchangeable runtime-supplied placeholders. Common case: a generator supplies pre-declined forms of a name (nominative/genitive/accusative/…) and each locale picks the grammatical case its language needs — correct, NOT drift. Each group collapses to one token before comparison.",
+  "placeholderEquivalents": [
+    ["name_nominative", "name_genitive", "name_accusative", "name_dative", "name_locative"]
+  ],
+
+  "liveCheck": {
+    "//": "Stage 3 spot-check via /browse. Render locally (your dev server) before shipping.",
+    "baseUrl": "http://localhost:3000",
+    "rootUnprefixedLocale": "en",
+    "localePathPattern": "/{locale}",
+    "samplePages": ["/{locale}", "/{locale}/about", "/{locale}/pricing"]
+  }
+}

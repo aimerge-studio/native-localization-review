@@ -1,0 +1,30 @@
+{
+  "name": "native-localization-review",
+  "version": "1.0.0",
+  "description": "Claude Code skill for native-fluency review and fixes of translated content across many locales — catches translationese, register/agreement errors, and runtime placeholder-agreement bugs, gated by your approval.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "bun test"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-code-skill",
+    "i18n",
+    "l10n",
+    "localization",
+    "translation",
+    "translation-quality",
+    "icu",
+    "next-intl",
+    "i18next"
+  ],
+  "author": "AI Merge Studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aimerge-studio/native-localization-review.git"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}
