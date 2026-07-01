@@ -23,21 +23,25 @@ reference (English) version of the same block for the accuracy pass.
 > changes at runtime, so an agreeing word is a latent bug. Prefer recasts that don't agree
 > (noun forms, neutral phrasing). Confirm the set of `{vars}` is byte-identical before→after.
 >
-> **Pass 4 — budget & consistency.** Respect length budgets (meta strings). Keep terminology
-> consistent with the termbase. Cut translationese filler.
+> **Pass 4 — spec & consistency.** Check register/formality, terminology, punctuation, number
+> format, and length against the **styleSpec for this locale** (supplied below — it was inferred
+> from your locale's existing corpus). Flag any string that deviates from the spec, and any term
+> rendered inconsistently across keys. Cut translationese filler.
 >
-> Return ONLY structured rows (schema below). No prose summary. Separate **bug** (objectively
-> wrong) from **polish** (stiff but correct) from **taste** (defensible preference). If the
-> block is clean, return zero rows and the line `VERDICT: clean`.
+> Return ONLY structured rows (schema below). No prose summary. Tag each finding's **class**:
+> `correctness` (objectively wrong), `spec` (deviates from the styleSpec — register/term/
+> punctuation/length/consistency), or `preference` (a genuine coin-flip once spec is satisfied).
+> Do **not** self-adjudicate a `preference` and do **not** drop it as "taste" — emit it; a panel
+> resolves it, ties keep the current string. If the block is clean, return zero rows and `VERDICT: clean`.
 
 ### Output schema (one row per finding)
 
 ```text
-locale | layer | key | category | severity | before | after | placeholders_preserved | rationale
+locale | layer | key | category | class | before | after | placeholders_preserved | rationale
 ```
 
-`category` ∈ placeholder-agreement · calque · morphology · register · length · terminology · untranslated · filler
-`severity` ∈ bug · polish · taste
+`category` ∈ placeholder-agreement · calque · morphology · register · length · terminology · consistency · untranslated · filler
+`class` ∈ correctness · spec · preference   (drives which resolver runs — see SKILL.md → Decision procedure)
 `placeholders_preserved` ∈ yes · NO (NO ⇒ re-derive the fix)
 
 ---
@@ -55,9 +59,31 @@ than a real issue held back for the next pass.
 > is the `{var}` set byte-identical? Return `verdict: uphold | reject` + one-line reason. If you are
 > not confident on all three, **reject**.
 
-Only `uphold` findings advance to the approval gate. (In one production run, this rejected 16 of
-~74 candidate bugs — plausible-looking recasts that introduced a subtle new error or "fixed" copy
-that was already correct.)
+Only `uphold` findings advance. (In one production run, this rejected 16 of ~74 candidate bugs —
+plausible-looking recasts that introduced a subtle new error or "fixed" copy that was already correct.)
+
+---
+
+## Resolve `spec` & `preference` findings (Stage 2 — nothing is human-only)
+
+`correctness` findings use the skeptic above. `spec` and `preference` findings resolve WITHOUT a human:
+
+**`spec` — decide against the styleSpec.** The reviewer already compared to the (corpus-inferred)
+styleSpec, so the resolution is mechanical: value deviates from spec ⇒ `resolution: change`, `resolvedBy: spec`
+(or `consistency` when the rule is "match the majority in-locale rendering / termbase"); value conforms ⇒
+`resolution: keep`. No vote needed.
+
+**`preference` — panel vote, then tie-break.** For a genuine coin-flip (both native, both on-spec), run a
+small odd panel of independent native [LANGUAGE] editors:
+
+> You are a native [LANGUAGE] editor. Two renderings are BOTH correct, on-register, and consistent
+> with the site: **A (current):** `{before}` · **B (proposed):** `{after}`. Which reads more natural
+> to a native [domain] reader, or are they truly equivalent? Answer `A` · `B` · `equivalent` + one-line
+> reason. Judge naturalness only — do not invent correctness objections.
+
+Tally: a **majority for B** ⇒ `change` (`resolvedBy: panel`); anything else — majority A, `equivalent`, or a
+split ⇒ **`keep` the current string** (`resolvedBy: tiebreak-keep`). Never churn shipped copy on a wash, and
+never escalate. Log recurring ties so their rule can be promoted into the styleSpec.
 
 ---
 
@@ -104,7 +130,7 @@ Use as the reviewer's checklist, not a substitute for native judgment.
 2. Inspect every `{placeholder}` for agreement; keep the `{var}` set identical.
 3. Meta strings shrink to budget; they never grow.
 4. Cut filler; keep terminology consistent with the termbase.
-5. Separate bug / polish / taste — never auto-apply taste.
+5. Tag each finding's `class` (correctness / spec / preference) and let the resolver decide — every finding ends as `change` or `keep`, never as an open question. A genuine tie keeps the current string.
 
 ---
 

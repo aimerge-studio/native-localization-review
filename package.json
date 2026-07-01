@@ -1,6 +1,6 @@
 {
   "name": "native-localization-review",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Claude Code skill for native-fluency review and fixes of translated content across many locales — catches translationese, register/agreement errors, and runtime placeholder-agreement bugs, gated by your approval.",
   "license": "MIT",
   "type": "module",

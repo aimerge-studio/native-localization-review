@@ -67,9 +67,9 @@ One layer per content type (UI strings, prose templates, long-form, ICU catalogs
 
 ## The workflow
 
-**0** mechanical gate → **1** per-locale native review → **2** adversarial verify (independent skeptic per finding; default-reject) → **3** live spot-check → **4** approval gate (diffs grouped by locale, bug/polish/taste separated) → **5** apply to source + re-verify.
+**0** mechanical gate → **1** per-locale native review → **2** verify & resolve (correctness → skeptic, default-reject; spec → decide against the corpus-inferred `styleSpec`; preference → native panel, ties keep-current) → **3** live spot-check → **4** review the resolved diff → **5** apply to source + re-verify.
 
-Findings are structured rows, never prose: `locale | layer | key | category | severity | before | after | placeholders_preserved | rationale`. Only `bug`-severity, verified findings auto-apply; `taste` is for the human.
+Findings are structured rows, never prose: `locale | layer | key | category | class | before | after | placeholders_preserved | resolution | resolvedBy | rationale`. **Nothing is "human-only":** every finding resolves to `change` or `keep` — a genuine coin-flip breaks deterministically to *keep the current string*, never to an open question. The human reviews the diff, not a backlog.
 
 ## Gate configuration
 

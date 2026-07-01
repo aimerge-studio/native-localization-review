@@ -34,6 +34,19 @@
     ["name_nominative", "name_genitive", "name_accusative", "name_dative", "name_locative"]
   ],
 
+  "//styleSpec": "Makes 'spec'-class findings decidable so nothing is human-only (see SKILL.md → Decision procedure). infer:true bootstraps each locale's register/termbase/punctuation/number/length conventions from the shipped corpus. tieBreak is the genuine-preference default. perLocale holds the few hand-set brand overrides that beat inference.",
+  "styleSpec": {
+    "infer": true,
+    "tieBreak": "keep-current",
+    "perLocale": {
+      "de": { "formality": "formal", "//": "override an inferred value; one call resolves many downstream findings" }
+    },
+    "termbase": {
+      "//": "canonical target per concept; a locale rendering it differently is a 'consistency' change, not taste",
+      "retail": { "de": "Einzelhandel", "fr": "ventes au détail", "es": "comercio minorista" }
+    }
+  },
+
   "liveCheck": {
     "//": "Stage 3 spot-check via /browse. Render locally (your dev server) before shipping.",
     "baseUrl": "http://localhost:3000",
