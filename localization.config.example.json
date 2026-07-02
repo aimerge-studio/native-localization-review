@@ -34,12 +34,23 @@
     ["name_nominative", "name_genitive", "name_accusative", "name_dative", "name_locative"]
   ],
 
-  "//styleSpec": "Makes 'spec'-class findings decidable so nothing is human-only (see SKILL.md → Decision procedure). infer:true bootstraps each locale's register/termbase/punctuation/number/length conventions from the shipped corpus. tieBreak is the genuine-preference default. perLocale holds the few hand-set brand overrides that beat inference.",
+  "//coverageIgnoreKeyPatterns": "Keys a locale may legitimately lack — skip ONLY the coverage check. The entry below is the i18next plural-suffix preset (Japanese has no `_one` form; that's correct, not a gap). All other checks still run on keys that exist.",
+  "coverageIgnoreKeyPatterns": ["_(zero|one|two|few|many)$"],
+
+  "//ledger": "Decisions ledger (JSONL, one line per resolved finding) — makes re-runs incremental, persists human overrides, and accumulates tie-break stats for styleSpec promotion. Commit it with the fixes.",
+  "ledger": ".loc-review/decisions.jsonl",
+
+  "//styleSpec": "Makes 'spec'-class findings decidable so nothing is human-only (see SKILL.md → Decision procedure, incl. the INFERENCE GUARD: the inferred spec is emitted for a one-time eyeball, cross-checked against per-language pitfall notes, and suppressed for a locale whose corpus Stage 1 flags too heavily). infer:true bootstraps each locale's register/termbase/punctuation/number/length/filler conventions from the shipped corpus. tieBreak is the genuine-preference default. perLocale holds the hand-set brand overrides that always outrank inference — Stage-4 human overrides get written back here (and to the ledger).",
   "styleSpec": {
     "infer": true,
     "tieBreak": "keep-current",
     "perLocale": {
-      "de": { "formality": "formal", "//": "override an inferred value; one call resolves many downstream findings" }
+      "de": {
+        "formality": "formal",
+        "fillerBlocklist": ["auf einen Blick"],
+        "rules": ["prefer genitive over three-noun compounds in headings"],
+        "//": "override an inferred value; one call resolves many downstream findings"
+      }
     },
     "termbase": {
       "//": "canonical target per concept; a locale rendering it differently is a 'consistency' change, not taste",

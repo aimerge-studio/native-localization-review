@@ -21,7 +21,7 @@ Bulk and AI translation is grammatical but reads translated. The subtle, high-va
 Clone into your Claude Code skills directory:
 
 ```bash
-git clone https://github.com/<you>/native-localization-review \
+git clone https://github.com/aimerge-studio/native-localization-review \
   ~/.claude/skills/native-localization-review
 ```
 
@@ -30,7 +30,7 @@ git clone https://github.com/<you>/native-localization-review \
 | File | Role |
 |------|------|
 | `SKILL.md` | The workflow (6 stages), output contract, gate config reference, red flags |
-| `reviewer-persona.md` | Native-editor method (blind-first), issue taxonomy, per-language pitfalls, the Stage-2 verify prompt |
+| `reviewer-persona.md` | Native-editor method (blind-first), issue taxonomy, per-language pitfalls, and the Stage-2 prompts (skeptic verify, spec resolver, diversified preference panel) |
 | `scripts/gate-core.ts` | Pure, tested gate logic (ICU-aware placeholder extraction, flatten, normalizer) |
 | `scripts/validate-locales.ts` | CLI runner for the mechanical gate |
 | `scripts/gate-core.test.ts` | Unit tests (`bun test`) |
@@ -75,10 +75,13 @@ Findings are structured rows, never prose: `locale | layer | key | category | cl
 
 The mechanical gate is fully deterministic and ICU-aware. Highlights (see `SKILL.md` → *Gate config reference*):
 
-- **Length budgets** — regex → char cap (SERP defaults ~60 title / ~155–160 description).
+- **Length budgets** — regex → char cap (SERP defaults ~60 title / ~155–160 description); checked on the **reference locale too**.
 - **Allowlist** — bare values are do-not-translate everywhere; `locale:value` entries whitelist a cognate in one locale only.
 - **Placeholder equivalents** — collapse interchangeable runtime placeholders (e.g. pre-declined name forms) so a locale choosing its grammatical case isn't flagged as drift.
-- **ICU-aware** — `plural`/`select` case bodies aren't mistaken for variables, and argument **sets** (not counts) are compared, so differing plural branch counts across locales never false-positive.
+- **Coverage ignore patterns** — skip the coverage check for keys a locale legitimately lacks (i18next plural suffixes: `"_(zero|one|two|few|many)$"`).
+- **ICU-aware** — `plural`/`select` case bodies aren't mistaken for variables, apostrophe-quoted literals (`'{'`, `''`) are respected, and argument **sets** (not counts) are compared, so differing plural branch counts across locales never false-positive.
+- **styleSpec + decisions ledger** — per-locale style conventions (inferred from the corpus under a documented guard, overridable in `perLocale`) decide `spec`-class findings; every resolution appends to `.loc-review/decisions.jsonl`, making re-runs incremental and human overrides persistent. See `SKILL.md` → *Decision procedure*.
+- **Exit codes** — `0` clean/warnings, `1` errors, `2` config/adapter problem or typo'd `--layer`/`--locale` (never a silent "clean").
 
 ## Development
 

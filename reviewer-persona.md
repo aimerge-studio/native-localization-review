@@ -30,9 +30,13 @@ reference (English) version of the same block for the accuracy pass.
 >
 > Return ONLY structured rows (schema below). No prose summary. Tag each finding's **class**:
 > `correctness` (objectively wrong), `spec` (deviates from the styleSpec — register/term/
-> punctuation/length/consistency), or `preference` (a genuine coin-flip once spec is satisfied).
-> Do **not** self-adjudicate a `preference` and do **not** drop it as "taste" — emit it; a panel
-> resolves it, ties keep the current string. If the block is clean, return zero rows and `VERDICT: clean`.
+> punctuation/length/consistency/**filler**), or `preference` (a genuine coin-flip once spec is
+> satisfied). **Filler/naturalness routing:** if you can NAME the rule the string violates — a
+> filler phrase on the spec's blocklist or in the per-language pitfall notes, a documented calque
+> pattern, a register convention — it is `spec`. If it merely "reads stiff" and you cannot cite a
+> rule, it is `preference` (the panel decides; do not silently drop it). Do **not** self-adjudicate
+> a `preference` and do **not** drop it as "taste" — emit it; a panel resolves it, ties keep the
+> current string. If the block is clean, return zero rows and `VERDICT: clean`.
 
 ### Output schema (one row per finding)
 
@@ -40,7 +44,7 @@ reference (English) version of the same block for the accuracy pass.
 locale | layer | key | category | class | before | after | placeholders_preserved | rationale
 ```
 
-`category` ∈ placeholder-agreement · calque · morphology · register · length · terminology · consistency · untranslated · filler
+`category` ∈ placeholder-agreement · meaning · calque · morphology · register · length · terminology · consistency · untranslated · filler
 `class` ∈ correctness · spec · preference   (drives which resolver runs — see SKILL.md → Decision procedure)
 `placeholders_preserved` ∈ yes · NO (NO ⇒ re-derive the fix)
 
@@ -48,9 +52,10 @@ locale | layer | key | category | class | before | after | placeholders_preserve
 
 ## Adversarial verify prompt (Stage 2)
 
-Run ONE skeptic per `bug`-severity finding, independent of the reviewer that produced it. The
-skeptic's job is to REFUTE, not to agree. Bias toward rejection — a wrong "fix" shipped is worse
-than a real issue held back for the next pass.
+Run ONE skeptic per `correctness`-class finding, independent of the reviewer that produced it.
+(Routing is by `class`, never by the optional severity hint.) The skeptic's job is to REFUTE, not
+to agree. Bias toward rejection — a wrong "fix" shipped is worse than a real issue held back for
+the next pass.
 
 > You are a skeptical native [LANGUAGE] proofreader. Another editor proposed this change:
 > **before:** `{before}` · **after:** `{after}` · **claim:** {rationale}
@@ -74,16 +79,30 @@ styleSpec, so the resolution is mechanical: value deviates from spec ⇒ `resolu
 `resolution: keep`. No vote needed.
 
 **`preference` — panel vote, then tie-break.** For a genuine coin-flip (both native, both on-spec), run a
-small odd panel of independent native [LANGUAGE] editors:
+small odd panel of native [LANGUAGE] judges. Two rules make the panel worth its cost: **each judge sees the
+string IN its assembled section** (the same assemble-first rule as Stage 1 — naturalness out of context is
+noise), and **each judge gets a different lens** — identical prompts to the same model produce correlated
+votes, i.e. one opinion at three times the price. Standard lenses:
 
-> You are a native [LANGUAGE] editor. Two renderings are BOTH correct, on-register, and consistent
-> with the site: **A (current):** `{before}` · **B (proposed):** `{after}`. Which reads more natural
-> to a native [domain] reader, or are they truly equivalent? Answer `A` · `B` · `equivalent` + one-line
-> reason. Judge naturalness only — do not invent correctness objections.
+> *(all three receive the assembled section with A or B in place, not the bare pair)*
+> **Judge 1 — first-time reader:** You are a native [LANGUAGE] reader seeing this page for the first
+> time. Which version reads more natural in context — A or B — or are they truly equivalent?
+> **Judge 2 — site editor:** You are the site's [LANGUAGE] copy editor. Which version fits the
+> surrounding strings' rhythm and register better — A, B, or equivalent?
+> **Judge 3 — back-translator:** Translate both back to [REFERENCE LANGUAGE] mentally. Which one
+> preserves the intended meaning with the least translationese residue — A, B, or equivalent?
+> Each: answer `A` · `B` · `equivalent` + one-line reason. Judge naturalness only — do not invent
+> correctness objections.
 
-Tally: a **majority for B** ⇒ `change` (`resolvedBy: panel`); anything else — majority A, `equivalent`, or a
-split ⇒ **`keep` the current string** (`resolvedBy: tiebreak-keep`). Never churn shipped copy on a wash, and
-never escalate. Log recurring ties so their rule can be promoted into the styleSpec.
+Tally — three distinct outcomes, two of them decisions, one a tie:
+- **majority for B** ⇒ `change`, `resolvedBy: panel` — the panel decided.
+- **majority for A** ⇒ `keep`, `resolvedBy: panel` — also a decision, NOT a tie; no `tie` flag.
+- **split or majority `equivalent`** ⇒ `keep`, `resolvedBy: tiebreak-keep`, ledger line gets `"tie": true` —
+  the only outcome that counts toward promoting a recurring rule into the `styleSpec`.
+
+Never churn shipped copy on a wash, and never escalate. **Budget note:** when a run has many `preference`
+findings, batch them — one panel call can judge all preference pairs for a locale's section at once; don't
+spawn 3 agents per string.
 
 ---
 
@@ -92,6 +111,7 @@ never escalate. Log recurring ties so their rule can be promoted into the styleS
 | Category | What it is | Real catch |
 |----------|------------|-----------|
 | **placeholder-agreement** | A word agrees with a `{var}` whose gender/number/case varies at runtime | es: `{label} clasificada` (fem. adj. on a variable) → `Clasificación de {label}` |
+| **meaning** | Inverted/wrong sense, or content added/dropped vs the reference | de: `Er stieg` ("it rose") translating "It was unchanged" → `blieb unverändert` |
 | **calque** | Word-for-word that's wrong in the target | hr: `Iznad inflacije` (spatial "above") for "Beyond" → `Osim inflacije` |
 | **morphology** | Wrong case/number/gender form | bg: `12-месечни тренда` (count-form after adjective) → `трендове` |
 | **register** | Wrong formality or too colloquial/jargon | bg: `фиск` (clipped jargon) → `публични финанси` |
