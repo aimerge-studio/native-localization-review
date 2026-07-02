@@ -5,35 +5,33 @@
  * Deterministic, no LLM. Catches what a script catches better than a model:
  *   - coverage      : keys present in the reference but missing in a locale (silent fallback)
  *   - placeholder   : the {arg} SET drifts between reference and locale (dropped/added/renamed)
- *   - malformed     : unbalanced braces in a value
+ *   - malformed     : unbalanced braces in a value (ICU apostrophe-quoting respected)
  *   - untranslated  : value byte-identical to the reference (and not allow-listed)
- *   - length        : value exceeds a configured budget for keys matching a pattern
+ *   - length        : value exceeds a configured budget — checked on the REFERENCE locale too
+ *   - adapter-error : one locale's load() threw (reported, run continues)
  *
  * Run BEFORE spending reviewer tokens, so Stage 1 reviews only real prose, not key noise.
- * Pure logic lives in gate-core.ts (unit-tested in gate-core.test.ts).
+ * All gate logic lives in gate-core.ts (unit-tested in gate-core.test.ts); this file only
+ * loads config + adapter, runs the gate, formats output, and sets the exit code.
  *
  * Requires bun (dynamic-imports the project's TypeScript adapter).
  *
  * Usage:
  *   bun run validate-locales.ts --config localization.config.json [--layer chrome] [--locale de] [--json]
  *
+ * Exit codes: 0 clean/warnings only · 1 errors found · 2 config/adapter/filter problem.
+ *
  * The config's "adapter" is a project module exporting:
  *   export const referenceLocale: string
- *   export const layers: Record<string, { locales: string[]; load(locale: string): Record<string, unknown> }>
- * (`load` may return nested objects; the gate flattens them to dotted keys.)
+ *   export const layers: Record<string, { locales: string[]; load(locale: string): Record<string, unknown>; icu?: boolean }>
+ * (`load` may return nested objects/arrays; the gate flattens them to dotted keys. `icu` defaults
+ *  to true; set `icu: false` on layers rendered by plain `{token}` interpolation so apostrophe-heavy
+ *  orthographies — Maltese f'{value} — aren't parsed as ICU quoting. See LayerLike in gate-core.ts.)
  */
 
 import { resolve, dirname, isAbsolute } from "node:path";
 import { readFileSync } from "node:fs";
-import {
-  type Config,
-  type Finding,
-  flatten,
-  placeholders,
-  bracesBalanced,
-  eqSorted,
-  makePlaceholderNormalizer,
-} from "./gate-core";
+import { type Config, type Finding, type LayerLike, runGate } from "./gate-core";
 
 // ---- arg parsing -----------------------------------------------------------
 function arg(name: string): string | undefined {
@@ -61,68 +59,17 @@ const adapterPath = isAbsolute(config.adapter)
 const adapter = (await import(adapterPath).catch((e) => {
   console.error(`Could not import adapter at ${adapterPath}: ${e.message}`);
   process.exit(2);
-})) as {
-  referenceLocale?: string;
-  layers: Record<string, { locales: string[]; load: (locale: string) => Record<string, unknown> }>;
-};
+})) as { referenceLocale?: string; layers: Record<string, LayerLike> };
 
 const refLocale = config.referenceLocale ?? adapter.referenceLocale ?? "en";
-const allowlist = new Set(config.identicalToReferenceAllowlist ?? []);
-const budgets = (config.lengthBudgets ?? []).map((b) => ({ ...b, re: new RegExp(b.keyPattern) }));
-const normPlaceholders = makePlaceholderNormalizer(config.placeholderEquivalents);
 
-// ---- run checks ------------------------------------------------------------
-const findings: Finding[] = [];
-
-for (const [layerName, layer] of Object.entries(adapter.layers)) {
-  if (onlyLayer && layerName !== onlyLayer) continue;
-  const ref = flatten(layer.load(refLocale));
-  const refKeys = Object.keys(ref);
-
-  for (const locale of layer.locales) {
-    if (locale === refLocale) continue;
-    if (onlyLocale && locale !== onlyLocale) continue;
-    const loc = flatten(layer.load(locale));
-
-    for (const key of refKeys) {
-      const refVal = ref[key];
-      const locVal = loc[key];
-
-      // coverage — present in reference, absent in locale (silently falls back)
-      if (locVal === undefined) {
-        if (/\p{L}/u.test(refVal))
-          findings.push({ locale, layer: layerName, key, type: "coverage", severity: "warn",
-            detail: "missing → falls back to reference (untranslated)" });
-        continue;
-      }
-
-      // malformed braces
-      if (!bracesBalanced(locVal))
-        findings.push({ locale, layer: layerName, key, type: "malformed", severity: "error",
-          detail: `unbalanced braces: ${JSON.stringify(locVal)}` });
-
-      // placeholder drift (ICU-aware SET comparison; case-form equivalents collapsed)
-      const rp = normPlaceholders(placeholders(refVal)), lp = normPlaceholders(placeholders(locVal));
-      if (!eqSorted(rp, lp))
-        findings.push({ locale, layer: layerName, key, type: "placeholder", severity: "error",
-          detail: `placeholders differ: reference {${rp.join(",")}} vs locale {${lp.join(",")}}` });
-
-      // untranslated (identical to reference). Allowlist entries are either a bare value (a
-      // do-not-translate token for every locale, e.g. "API") or a `locale:value` pair (a value
-      // that is a legitimate cognate in ONE locale only, e.g. "de:Newsletter") — the scoped form
-      // suppresses the cognate without masking a real gap in other locales.
-      const v = refVal.trim();
-      if (locVal.trim() === v && /\p{L}/u.test(refVal) && !allowlist.has(v) && !allowlist.has(`${locale}:${v}`))
-        findings.push({ locale, layer: layerName, key, type: "untranslated", severity: "warn",
-          detail: "identical to reference (possibly untranslated)" });
-
-      // length budget
-      for (const b of budgets)
-        if (b.re.test(key) && locVal.length > b.max)
-          findings.push({ locale, layer: layerName, key, type: "length", severity: "warn",
-            detail: `${locVal.length} > ${b.max} chars${b.note ? ` (${b.note})` : ""}` });
-    }
-  }
+// ---- run --------------------------------------------------------------------
+let findings: Finding[];
+try {
+  findings = runGate(adapter.layers, config, { refLocale, onlyLayer, onlyLocale });
+} catch (e) {
+  console.error((e as Error).message); // unknown filter, bad keyPattern regex, ref load failure
+  process.exit(2);
 }
 
 // ---- report ----------------------------------------------------------------
