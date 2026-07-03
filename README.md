@@ -9,7 +9,7 @@ It complements, and does not replace, hreflang/international-SEO tooling: those 
 
 ## Why it exists
 
-Bulk and AI translation is grammatical but reads translated. The subtle, high-value class a generic review misses: a word (article, adjective, participle, verb) that agrees with a `{placeholder}` whose gender/number/case changes at runtime — e.g. Spanish `{label} clasificada` breaks the moment `{label}` is masculine. This skill's per-language native-editor reviewers are built to catch exactly that — in page context, blind to the source first — and an independent skeptic verifies every fix before it reaches you.
+Bulk and AI translation is grammatical but reads translated. The subtle, high-value class a generic review misses: a word (article, adjective, participle, verb) that agrees with a `{placeholder}` whose gender/number/case changes at runtime — e.g. Spanish `{label} clasificada` breaks the moment `{label}` is masculine. This skill's per-language native-editor reviewers are built to catch exactly that — in page context, blind to the source first. Each correctness fix is then double-checked by an independent skeptic (default-reject), and every change lands as a logged, revertible decision before it reaches you.
 
 ## Requirements
 
