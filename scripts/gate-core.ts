@@ -127,12 +127,14 @@ export function stripIcuQuoted(s: string): string {
  *
  * `{ icu: false }` switches to PLAIN-interpolation extraction for layers rendered by a regex fill
  * (`tpl.replace(/\{token\}/g, …)`): no apostrophe-quote stripping, no plural/select parsing — the
- * extractor matches exactly what such a fill would substitute. Keeps Maltese-style `f'{value}`
+ * extractor matches exactly what such a fill would substitute. Token names may include dots and
+ * hyphens (`{user.name}`, `{cta-label}`) as those fills commonly do. Keeps Maltese-style `f'{value}`
  * (apostrophe as orthography) from being read as ICU quoting. See LayerLike.icu.
  */
 export function placeholders(raw: string, opts?: { icu?: boolean }): string[] {
   if (opts?.icu === false) {
-    const args = [...raw.matchAll(/\{\s*([\p{L}\p{N}_]+)\s*\}/gu)].map((m) => m[1]);
+    // Plain `{token}` fill: allow dotted/hyphenated names ({user.name}) as such fills do.
+    const args = [...raw.matchAll(/\{\s*([\p{L}\p{N}_.-]+)\s*\}/gu)].map((m) => m[1]);
     return [...new Set(args)].sort();
   }
   const s = stripIcuQuoted(raw);

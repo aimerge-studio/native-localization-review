@@ -1,48 +1,84 @@
-# native-localization-review
+<h1 align="center">native-localization-review</h1>
 
-[![test](https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml/badge.svg)](https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml)
-&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+<p align="center">
+  <strong>Find the translation bugs a spell-checker and a human reviewer both miss — across every locale, at scale, gated by your approval.</strong>
+</p>
 
-A [Claude Code](https://claude.com/claude-code) skill for **native-fluency review and fixes of already-translated content at scale** — across many locales and pages. It finds copy that reads *translated* (calques, stiff register, agreement errors, runtime placeholder-agreement bugs, SERP-overlong meta strings, terminology drift) and turns it into copy a local editor would have written — gated by your approval.
+<p align="center">
+  A <a href="https://claude.com/claude-code">Claude Code</a> skill for native-fluency review and fixes of already-translated content: UI strings, message catalogs, and marketing copy in any number of languages.
+</p>
 
-It complements, and does not replace, hreflang/international-SEO tooling: those handle language tags and regions; this handles **linguistic quality**.
+<p align="center">
+  <a href="https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml"><img src="https://github.com/aimerge-studio/native-localization-review/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Claude%20Code-skill-8A63D2" alt="Claude Code skill">
+  <img src="https://img.shields.io/badge/runtime-bun-000" alt="bun">
+  <img src="https://img.shields.io/badge/i18n-next--intl%20%C2%B7%20i18next%20%C2%B7%20react--intl%20%C2%B7%20vue--i18n-1f6feb" alt="i18n frameworks">
+</p>
 
-## Why it exists
+---
 
-Bulk and AI translation is grammatical but reads translated. The subtle, high-value class a generic review misses: a word (article, adjective, participle, verb) that agrees with a `{placeholder}` whose gender/number/case changes at runtime — e.g. Spanish `{label} clasificada` breaks the moment `{label}` is masculine. This skill's per-language native-editor reviewers are built to catch exactly that — in page context, blind to the source first. Each correctness fix is then double-checked by an independent skeptic (default-reject), and every change lands as a logged, revertible decision before it reaches you.
+## The bug nobody else catches
+
+Bulk and AI translation is *grammatical* — so it sails past QA — but it reads translated, and worse, it hides a class of bug that only appears at runtime: **a word that grammatically agrees with a `{placeholder}` whose gender, number, or case changes on every render.**
+
+Spanish `{label} clasificada` is flawless until `{label}` becomes a masculine noun — then your production page shows `el PIB clasificada`. No test, no linter, and no side-by-side human review reliably catches it, because the string is *correct in isolation*. This skill is built to catch exactly that, and the rest of the translationese around it.
+
+| Lang | Before (machine) | After (native) | What was wrong |
+|:----:|------------------|----------------|----------------|
+| es | `{label} clasificada` | `Clasificación de {label}` | feminine adjective agreeing with a runtime variable |
+| hr | `Iznad inflacije` | `Osim inflacije` | spatial "above" mistranslating "beyond" (calque) |
+| bg | `12-месечни тренда` | `12-месечни трендове` | wrong plural form after an adjective |
+| fr | *…179-char meta description* | *…trimmed to 149* | truncated in search results |
+
+## What it does
+
+- **Deterministic gate, then native editors.** A fast, LLM-free mechanical gate (`bun`) catches missing keys, placeholder drift, untranslated strings, and over-budget meta *before* spending a single token — then one native-editor reviewer per locale judges fluency, blind to the source first.
+- **Catches runtime placeholder-agreement bugs** — the gendered-article / participle / verb class above, which generic review misses.
+- **Nothing is "human-only."** Every finding resolves to **change** or **keep** through a decision procedure (verify → style spec → panel → deterministic tie-break). You review a clean diff, not a backlog of open questions.
+- **Scales.** Parallel per-locale review over hundreds of pages; a decisions ledger makes re-runs incremental.
+- **Framework-agnostic.** Works with per-locale JSON (next-intl, i18next, react-intl, vue-i18n) or in-code TS/JS dictionaries, via a tiny adapter you write once.
+- **ICU MessageFormat-aware.** Plural/select bodies, apostrophe quoting, and Unicode argument names are handled correctly — and it's [unit-tested](./scripts/gate-core.test.ts).
+
+## Example: the mechanical gate
+
+```console
+$ bun run validate-locales.ts --config localization.config.json
+
+de  (2)
+  [ERR ] messages.stats.rose · placeholder: placeholders differ: reference {label,value} vs locale {value}
+  [warn] messages.hub.metaDescription · length: 187 > 160 chars (SERP)
+
+2 findings · 1 errors. Errors gate the build; warnings feed Stage 1 review.
+```
+
+Exit `0` clean/warnings, `1` errors (wire it into CI), `2` config problem. Deterministic — same input, same output, every run.
+
+## How it works
+
+**0** mechanical gate → **1** per-locale native review → **2** verify & resolve (correctness → skeptic, default-reject · style → decide against the corpus-inferred `styleSpec` · preference → native panel, ties keep-current) → **3** live spot-check → **4** review the resolved diff → **5** apply to source + re-verify.
+
+Findings are structured rows, never prose:
+`locale | layer | key | category | class | before | after | placeholders_preserved | resolution | resolvedBy | rationale`.
+Only verified `change` rows land; a genuine coin-flip deterministically **keeps the current string** — the skill never hands you a question. Full detail in [`SKILL.md`](./SKILL.md).
 
 ## Requirements
 
-- **[bun](https://bun.sh)** — the mechanical gate dynamic-imports your project's TypeScript adapter and runs the unit tests.
-- **Claude Code** — the skill is invoked as `/native-localization-review`.
+- **[bun](https://bun.sh)** — the gate dynamic-imports your TypeScript adapter and runs the tests.
+- **[Claude Code](https://claude.com/claude-code)** — the skill is invoked as `/native-localization-review`.
 
 ## Install
-
-Clone into your Claude Code skills directory:
 
 ```bash
 git clone https://github.com/aimerge-studio/native-localization-review \
   ~/.claude/skills/native-localization-review
 ```
 
-## What's in the box
-
-| File | Role |
-|------|------|
-| `SKILL.md` | The workflow (6 stages), output contract, gate config reference, red flags |
-| `reviewer-persona.md` | Native-editor method (blind-first), issue taxonomy, per-language pitfalls, and the Stage-2 prompts (skeptic verify, spec resolver, diversified preference panel) |
-| `scripts/gate-core.ts` | Pure, tested gate logic (ICU-aware placeholder extraction, flatten, normalizer) |
-| `scripts/validate-locales.ts` | CLI runner for the mechanical gate |
-| `scripts/gate-core.test.ts` | Unit tests (`bun test`) |
-| `localization.config.example.json` | Policy: length budgets, allowlist, placeholder equivalents, live-check |
-| `adapters/json-catalog.adapter.example.ts` | Adapter for per-locale JSON catalogs (next-intl / i18next / react-intl / vue-i18n) |
-| `adapters/code-module.adapter.example.ts` | Adapter for TS/JS dictionary projects (multi-layer) |
-
 ## Quickstart
 
-1. **Copy the two templates into your repo** and edit them:
-   - an adapter from `adapters/` → `scripts/loc-review.adapter.ts`
-   - `localization.config.example.json` → `localization.config.json`
+1. **Copy two templates into your repo** and edit them:
+   - an adapter from [`adapters/`](./adapters) → `scripts/loc-review.adapter.ts`
+   - [`localization.config.example.json`](./localization.config.example.json) → `localization.config.json`
 2. **Run the mechanical gate** (deterministic, no LLM — narrows the surface first):
    ```bash
    bun run ~/.claude/skills/native-localization-review/scripts/validate-locales.ts \
@@ -53,35 +89,28 @@ git clone https://github.com/aimerge-studio/native-localization-review \
 
 ## The adapter contract
 
-Your adapter is a pure TypeScript module (no server-only/DB imports) that tells the gate how to load strings:
+Your adapter is a small, pure TypeScript module (no server-only/DB imports) that tells the gate how to load strings:
 
 ```ts
 export const referenceLocale: string;
 export const layers: Record<string, {
   locales: string[];
-  load(locale: string): Record<string, unknown>; // nested ok; flattened to dotted keys
+  load(locale: string): Record<string, unknown>; // nested objects/arrays ok; flattened to dotted keys
+  icu?: boolean;                                  // default true; false for plain {token} interpolation
 }>;
 ```
 
-One layer per content type (UI strings, prose templates, long-form, ICU catalogs). Each layer's fix destination — including codegen'd files whose source-of-truth is elsewhere — is documented in `localization.config.json`'s `layers` block.
+One layer per content type (UI strings, prose templates, ICU catalogs, codegen'd strings). Two worked examples ship in [`adapters/`](./adapters): [`json-catalog`](./adapters/json-catalog.adapter.example.ts) for file-based i18n, and [`code-module`](./adapters/code-module.adapter.example.ts) for TS/JS dictionaries.
 
-## The workflow
+## Configuration
 
-**0** mechanical gate → **1** per-locale native review → **2** verify & resolve (correctness → skeptic, default-reject; spec → decide against the corpus-inferred `styleSpec`; preference → native panel, ties keep-current) → **3** live spot-check → **4** review the resolved diff → **5** apply to source + re-verify.
+Everything the gate enforces lives in `localization.config.json` (see the [example](./localization.config.example.json)):
 
-Findings are structured rows, never prose: `locale | layer | key | category | class | before | after | placeholders_preserved | resolution | resolvedBy | rationale`. **Nothing is "human-only":** every finding resolves to `change` or `keep` — a genuine coin-flip breaks deterministically to *keep the current string*, never to an open question. The human reviews the diff, not a backlog.
-
-## Gate configuration
-
-The mechanical gate is fully deterministic and ICU-aware. Highlights (see `SKILL.md` → *Gate config reference*):
-
-- **Length budgets** — regex → char cap (SERP defaults ~60 title / ~155–160 description); checked on the **reference locale too**.
+- **Length budgets** — regex → char cap; checked on the reference locale too (SERP defaults ~60 title / ~155–160 description).
 - **Allowlist** — bare values are do-not-translate everywhere; `locale:value` entries whitelist a cognate in one locale only.
 - **Placeholder equivalents** — collapse interchangeable runtime placeholders (e.g. pre-declined name forms) so a locale choosing its grammatical case isn't flagged as drift.
-- **Coverage ignore patterns** — skip the coverage check for keys a locale legitimately lacks (i18next plural suffixes: `"_(zero|one|two|few|many)$"`).
-- **ICU-aware** — `plural`/`select` case bodies aren't mistaken for variables, apostrophe-quoted literals (`'{'`, `''`) are respected, and argument **sets** (not counts) are compared, so differing plural branch counts across locales never false-positive.
-- **styleSpec + decisions ledger** — per-locale style conventions (inferred from the corpus under a documented guard, overridable in `perLocale`) decide `spec`-class findings; every resolution appends to `.loc-review/decisions.jsonl`, making re-runs incremental and human overrides persistent. See `SKILL.md` → *Decision procedure*.
-- **Exit codes** — `0` clean/warnings, `1` errors, `2` config/adapter problem or typo'd `--layer`/`--locale` (never a silent "clean").
+- **Coverage-ignore patterns** — skip coverage for keys a locale legitimately lacks (i18next plural suffixes: `"_(zero|one|two|few|many)$"`).
+- **styleSpec + decisions ledger** — per-locale style conventions (inferred from the corpus under a documented guard, overridable per locale) resolve style findings; every resolution appends to `.loc-review/decisions.jsonl`, making re-runs incremental and human overrides persistent.
 
 ## Development
 
@@ -89,8 +118,18 @@ The mechanical gate is fully deterministic and ICU-aware. Highlights (see `SKILL
 bun test        # runs scripts/gate-core.test.ts
 ```
 
-The gate's pure logic lives in `scripts/gate-core.ts` and is unit-tested independently of the CLI runner.
+The gate's pure logic lives in [`scripts/gate-core.ts`](./scripts/gate-core.ts) and is unit-tested independently of the CLI runner.
+
+## How it compares
+
+This is not a translation service and not an hreflang/`<link>` tool. Machine translation and TMS platforms *produce* strings; hreflang tooling wires up language tags. `native-localization-review` is the missing **quality** layer on top: it reads what shipped, in context, and fixes what reads translated — with a bias toward never touching copy that's already fine.
+
+## Contributing
+
+Issues and PRs welcome. The per-language pitfall notes in [`reviewer-persona.md`](./reviewer-persona.md) are meant to grow — additions for new languages are especially valued.
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE).
+MIT © [AI Merge Studio](https://github.com/aimerge-studio) — see [`LICENSE`](./LICENSE).
+
+<p align="center"><sub>If this saved you from shipping <code>el PIB clasificada</code>, a ⭐ helps others find it.</sub></p>

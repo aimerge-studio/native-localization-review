@@ -13,7 +13,12 @@
 //   import { LOCALES } from "../src/i18n/config";
 //   import { getMessages } from "../src/i18n/get-messages"; // returns {...reference, ...localeOverride}
 const LOCALES = ["en", "de", "fr", "es"];
-const getMessages = (_locale: string): Record<string, unknown> => ({ /* your dictionary for _locale */ });
+const getMessages = (_locale: string): Record<string, unknown> => {
+  // Left as a stub on purpose — wire it to your real message loader above. Throwing here means a
+  // copied-but-unwired adapter fails loudly ("adapter error") instead of loading nothing and
+  // reporting a misleading "✓ clean". Delete this line once `getMessages` returns real strings.
+  throw new Error("code-module adapter: replace the getMessages() stub with your project's message loader.");
+};
 
 export const referenceLocale = "en";
 

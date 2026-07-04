@@ -90,6 +90,14 @@ describe("placeholders() — { icu: false } plain-interpolation mode", () => {
     expect(placeholders("{país}: {tasa}", { icu: false })).toEqual(["país", "tasa"]);
   });
 
+  test("plain mode extracts dotted / hyphenated token names ({user.name}, {cta-label})", () => {
+    expect(placeholders("Hi {user.name}, see {cta-label}", { icu: false })).toEqual(["cta-label", "user.name"]);
+    // Drift is still caught when a dotted token is dropped.
+    const en = placeholders("{user.name} ({user.id})", { icu: false });
+    const de = placeholders("{user.name}", { icu: false }); // dropped {user.id}
+    expect(eqSorted(en, de)).toBe(false);
+  });
+
   test("bracesBalanced respects the flag: apostrophes are not quotes in plain mode", () => {
     expect(bracesBalanced("F'{value} ta' {name}", { icu: false })).toBe(true);
     // Flip side, documented: a literal-brace string that is legal ICU is unbalanced in plain mode.
